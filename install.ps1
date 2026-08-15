@@ -605,13 +605,17 @@ function Get-PrimeAgentCommand {
     return $null
 }
 
+function Get-WingetCommand {
+    return Get-PrimeAgentCommand @("winget.exe", "winget")
+}
+
 function Install-WithWinget {
     param(
         [Parameter(Mandatory)][string]$Id,
         [Parameter(Mandatory)][string]$Name
     )
 
-    $winget = Get-PrimeAgentCommand @("winget.exe", "winget")
+    $winget = Get-WingetCommand
     if (-not $winget) { throw "$Name is required. Install it manually because winget is unavailable." }
 
     $details = @(
@@ -644,6 +648,9 @@ function Initialize-NodeAndNpm {
     $npm = Get-PrimeAgentCommand @("npm.cmd", "npm")
     if ($node -and $npm) { return $npm }
 
+    if (-not (Get-WingetCommand)) {
+        throw "Prime Agent requires Node.js $minimumNodeVersion or newer and npm. Install Node.js LTS manually from https://nodejs.org/, then run the installer again."
+    }
     if (-not (Confirm-PrimeAgentAction -Message "Install Node.js and npm with winget?" -Detail "Required before Prime Agent can be installed.")) {
         throw "Prime Agent requires Node.js $minimumNodeVersion or newer and npm."
     }
@@ -676,6 +683,9 @@ function Find-Bash {
 
 function Initialize-Bash {
     if (Find-Bash) { return }
+    if (-not (Get-WingetCommand)) {
+        throw "Prime Agent requires Git Bash, Cygwin, MSYS2, or WSL on Windows. Install one manually, then run the installer again."
+    }
     if (-not (Confirm-PrimeAgentAction -Message "Install Git for Windows with winget?" -Detail "Prime Agent requires Git Bash or another bash shell.")) {
         throw "Prime Agent requires Git Bash, Cygwin, MSYS2, or WSL on Windows."
     }

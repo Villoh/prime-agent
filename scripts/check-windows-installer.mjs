@@ -23,6 +23,11 @@ check(source.includes(channelPlaceholder), "missing default release channel plac
 check(source.includes("Security.Cryptography.SHA256"), "installer must verify downloads with SHA-256");
 check(source.includes('OpenJS.NodeJS.LTS'), "installer must offer Node.js installation");
 check(source.includes('Git.Git'), "installer must offer Git Bash installation");
+const nodeSetup = source.slice(source.indexOf("function Initialize-NodeAndNpm"), source.indexOf("function Find-Bash"));
+check(
+	nodeSetup.indexOf("Get-WingetCommand") < nodeSetup.indexOf("Install Node.js and npm with winget?"),
+	"installer must check for winget before offering to install Node.js",
+);
 check(source.includes("▄▄███▀"), "installer must include Prime Agent logo");
 check(source.includes("$syncStart"), "installer must use synchronized terminal updates");
 check(mainCallIndex !== -1, "could not find final installer invocation");
