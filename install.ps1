@@ -609,6 +609,13 @@ function Get-WingetCommand {
     return Get-PrimeAgentCommand @("winget.exe", "winget")
 }
 
+function Test-NpmSupportsAllowRemote {
+    param([Parameter(Mandatory)][string]$Npm)
+
+    $version = $null
+    return [version]::TryParse((& $Npm --version).Trim(), [ref]$version) -and $version.Major -ge 12
+}
+
 function Install-WithWinget {
     param(
         [Parameter(Mandatory)][string]$Id,
@@ -780,7 +787,9 @@ function Install-PrimeAgentPackage {
             $(if ($BootstrapKernel) { "Preparing IPython kernel." } else { "Finalizing npm install." }),
             "Finalizing npm install."
         )
-        $arguments = @("install", "-g", "--allow-remote=all", "--no-fund", "--no-audit", "--loglevel=error", "--progress=false", $TarballPath)
+        $arguments = @("install", "-g", "--no-fund", "--no-audit", "--loglevel=error", "--progress=false")
+        if (Test-NpmSupportsAllowRemote -Npm $Npm) { $arguments += "--allow-remote=all" }
+        $arguments += $TarballPath
         Invoke-InstallerNativeCommand -Title "Installing Prime Agent" -Status "Installing Prime Agent" `
             -Details $details -FilePath $Npm -Arguments $arguments
     }

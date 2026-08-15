@@ -45,7 +45,8 @@ const powershellCommands = findPowerShellCommands();
 if (powershellCommands.length > 0) {
 	for (const command of powershellCommands) {
 		await runRenderCheck(command);
-		await runEndToEndCheck(command);
+		await runEndToEndCheck(command, "12.0.2", true);
+		await runEndToEndCheck(command, "11.13.0", false);
 	}
 } else {
 	process.stdout.write("PowerShell unavailable; skipped Windows installer execution check.\n");
@@ -234,7 +235,7 @@ $result = [pscustomobject]@{
 	}
 }
 
-async function runEndToEndCheck(command) {
+async function runEndToEndCheck(command, npmVersion, expectsAllowRemote) {
 	const tempDir = mkdtempSync(join(tmpdir(), "prime-agent-windows-installer-"));
 	const binDir = join(tempDir, "bin");
 	const npmLog = join(tempDir, "npm.log");
@@ -247,7 +248,7 @@ async function runEndToEndCheck(command) {
 	try {
 		mkdirSync(binDir, { recursive: true });
 		writeFileSync(shellPath, "test shell");
-		writeFakeCommands(binDir, npmLog);
+		writeFakeCommands(binDir, npmLog, npmVersion);
 		const settingsDir = join(tempDir, ".prime", "agent");
 		mkdirSync(settingsDir, { recursive: true });
 		writeFileSync(join(settingsDir, "settings.json"), `${JSON.stringify({ shellPath })}\n`);
@@ -314,7 +315,10 @@ try { $null = $primeAgentUndefinedStrictModeProbe } catch { throw "Installer ena
 				check(!result.stdout.includes("\u001b[?2026h"), "redirected installer must not emit terminal control sequences");
 				const npmInvocation = readFileSync(npmLog, "utf8");
 				check(npmInvocation.includes("install -g"), `installer did not run npm install -g: ${npmInvocation}`);
-				check(npmInvocation.includes("--allow-remote=all"), `installer did not allow verified remote dependencies: ${npmInvocation}`);
+				check(
+					npmInvocation.includes("--allow-remote=all") === expectsAllowRemote,
+					`installer allow-remote setting was wrong for npm ${npmVersion}: ${npmInvocation}`,
+				);
 				check(npmInvocation.includes(tarballName), `installer did not pass downloaded tarball to npm: ${npmInvocation}`);
 				check(npmInvocation.includes("TOOLS=1"), `installer did not bootstrap required tools: ${npmInvocation}`);
 				check(/(?:^|[|\r\n])KERNEL=0(?:\r?\n|$)/.test(npmInvocation), `installer unexpectedly bootstrapped kernel: ${npmInvocation}`);
@@ -328,12 +332,12 @@ try { $null = $primeAgentUndefinedStrictModeProbe } catch { throw "Installer ena
 	}
 }
 
-function writeFakeCommands(binDir, npmLog) {
+function writeFakeCommands(binDir, npmLog, npmVersion) {
 	if (process.platform === "win32") {
 		writeFileSync(join(binDir, "node.cmd"), "@echo off\r\necho v22.8.0\r\n");
 		writeFileSync(
 			join(binDir, "npm.cmd"),
-			`@echo off\r\n>"${npmLog}" echo %*\r\n>>"${npmLog}" echo TOOLS=%PRIME_AGENT_BOOTSTRAP_TOOLS_ON_INSTALL%\r\n>>"${npmLog}" echo KERNEL=%PRIME_AGENT_BOOTSTRAP_KERNEL_ON_INSTALL%\r\n>&2 echo simulated npm stderr\r\n`,
+			`@echo off\r\nif "%~1"=="--version" (\r\n  echo ${npmVersion}\r\n  exit /b 0\r\n)\r\n>"${npmLog}" echo %*\r\n>>"${npmLog}" echo TOOLS=%PRIME_AGENT_BOOTSTRAP_TOOLS_ON_INSTALL%\r\n>>"${npmLog}" echo KERNEL=%PRIME_AGENT_BOOTSTRAP_KERNEL_ON_INSTALL%\r\n>&2 echo simulated npm stderr\r\n`,
 		);
 		return;
 	}
@@ -343,7 +347,7 @@ function writeFakeCommands(binDir, npmLog) {
 	writeFileSync(nodePath, "#!/bin/sh\nprintf 'v22.8.0\\n'\n");
 	writeFileSync(
 		npmPath,
-		`#!/bin/sh\nprintf '%s|TOOLS=%s|KERNEL=%s\\n' "$*" "$PRIME_AGENT_BOOTSTRAP_TOOLS_ON_INSTALL" "$PRIME_AGENT_BOOTSTRAP_KERNEL_ON_INSTALL" > "${npmLog}"\nprintf 'simulated npm stderr\\n' >&2\n`,
+		`#!/bin/sh\nif [ "$1" = "--version" ]; then\n  printf '${npmVersion}\\n'\n  exit 0\nfi\nprintf '%s|TOOLS=%s|KERNEL=%s\\n' "$*" "$PRIME_AGENT_BOOTSTRAP_TOOLS_ON_INSTALL" "$PRIME_AGENT_BOOTSTRAP_KERNEL_ON_INSTALL" > "${npmLog}"\nprintf 'simulated npm stderr\\n' >&2\n`,
 	);
 	chmodSync(nodePath, 0o755);
 	chmodSync(npmPath, 0o755);
