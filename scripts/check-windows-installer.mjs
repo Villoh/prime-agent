@@ -314,6 +314,7 @@ try { $null = $primeAgentUndefinedStrictModeProbe } catch { throw "Installer ena
 				check(!result.stdout.includes("\u001b[?2026h"), "redirected installer must not emit terminal control sequences");
 				const npmInvocation = readFileSync(npmLog, "utf8");
 				check(npmInvocation.includes("install -g"), `installer did not run npm install -g: ${npmInvocation}`);
+				check(npmInvocation.includes("--allow-remote=all"), `installer did not allow verified remote dependencies: ${npmInvocation}`);
 				check(npmInvocation.includes(tarballName), `installer did not pass downloaded tarball to npm: ${npmInvocation}`);
 				check(npmInvocation.includes("TOOLS=1"), `installer did not bootstrap required tools: ${npmInvocation}`);
 				check(/(?:^|[|\r\n])KERNEL=0(?:\r?\n|$)/.test(npmInvocation), `installer unexpectedly bootstrapped kernel: ${npmInvocation}`);

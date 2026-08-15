@@ -780,7 +780,7 @@ function Install-PrimeAgentPackage {
             $(if ($BootstrapKernel) { "Preparing IPython kernel." } else { "Finalizing npm install." }),
             "Finalizing npm install."
         )
-        $arguments = @("install", "-g", "--no-fund", "--no-audit", "--loglevel=error", "--progress=false", $TarballPath)
+        $arguments = @("install", "-g", "--allow-remote=all", "--no-fund", "--no-audit", "--loglevel=error", "--progress=false", $TarballPath)
         Invoke-InstallerNativeCommand -Title "Installing Prime Agent" -Status "Installing Prime Agent" `
             -Details $details -FilePath $Npm -Arguments $arguments
     }
